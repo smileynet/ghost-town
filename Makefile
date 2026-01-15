@@ -1,4 +1,4 @@
-.PHONY: help build test lint clean install build-all release fmt vet
+.PHONY: help build test lint clean install build-all release fmt vet run dev
 
 # Build variables
 BINARY_NAME=ghost-town

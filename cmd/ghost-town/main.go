@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/smileynet/ghost-town/internal/cli"
 	"github.com/smileynet/ghost-town/internal/version"
 )
 
@@ -14,13 +15,33 @@ var (
 )
 
 func main() {
-	if len(os.Args) > 1 && os.Args[1] == "version" {
-		fmt.Println(version.GetBuildInfo())
-		os.Exit(0)
+	if len(os.Args) < 2 {
+		printUsage()
+		os.Exit(1)
 	}
 
+	command := os.Args[1]
+	args := os.Args[2:]
+
+	switch command {
+	case "version", "-v", "--version":
+		fmt.Println(version.GetBuildInfo())
+	default:
+		fmt.Printf("Unknown command: %s\n\n", command)
+		printUsage()
+		os.Exit(1)
+	}
+}
+
+func printUsage() {
 	fmt.Println("ghost-town - kiro-cli tool based on Gas Town")
-	fmt.Printf("Version: %s\n", version.GetVersion())
-	fmt.Println("Early development - coming soon!")
-	os.Exit(0)
+	fmt.Println()
+	fmt.Println("Usage:")
+	fmt.Println("  ghost-town <command> [options]")
+	fmt.Println()
+	fmt.Println("Commands:")
+	fmt.Println("  version      Show version information")
+	fmt.Println()
+	fmt.Println("For more information, run:")
+	fmt.Println("  ghost-town <command> --help")
 }

@@ -92,3 +92,14 @@ state.json
 # Output directories
 output/
 dist/
+
+# Build directories
+bin/
+tmp/
+
+# Coverage reports
+coverage.out
+coverage.html
+
+# Air hot reload
+tmp/

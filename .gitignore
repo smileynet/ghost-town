@@ -1,0 +1,94 @@
+# Binaries
+/ghost-town
+/gh
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Test binaries
+*.test
+*.out
+
+# Go workspace file
+go.work
+
+# Go build cache
+pkg/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Claude Code
+.claude/settings.local.json
+
+# OS
+.DS_Store
+Thumbs.db
+
+# SQLite databases
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# Daemon runtime files
+.beads/daemon.log
+.beads/daemon.pid
+.beads/daemon.lock
+.beads/daemon-error
+.beads/bd.sock
+.beads/.exclusive-lock
+
+# Keep JSONL exports (source of truth for git)
+!.beads/*.jsonl
+
+# 3-way merge snapshot files
+.beads/beads.base.jsonl
+.beads/beads.left.jsonl
+.beads/beads.base.meta.json
+.beads/beads.left.meta.json
+
+# Note: .beads/deletions.jsonl is intentionally NOT ignored
+# It must be tracked in git for cross-clone deletion propagation
+
+# Git merge driver temp files
+.beads/*.json[0-9]
+.beads/*.jsonl[0-9]
+
+# Git worktrees
+.worktrees/
+
+# Python cache files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.envrc
+
+# Performance profiling files
+*.prof
+*.out
+ghost-town-perf-*.prof
+bench-cpu-*.prof
+ghost-town-profile-*.prof
+gh-trace-*.out
+
+# AI planning documents (ephemeral)
+history/
+
+# Orchestrator agent state
+state.json
+.beads/redirect
+
+# Claude Code runtime
+.runtime/
+
+# Output directories
+output/
+dist/

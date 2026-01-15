@@ -1,0 +1,324 @@
+# Task Execution Protomolecule Formula
+#
+# This formula implements a reusable pattern for autonomous task execution
+# using subagents with validation loops. Ensures quality and completion before
+# closing beads.
+#
+# Pattern:
+#   1. Primary agent claims bead
+#   2. Launch Worker Subagent (repeats until complete)
+#   3. Launch Validator Subagent
+#   4. If validation fails, return to step 2
+#   5. If validation passes, complete bead and commit
+
+formula = "task-execution"
+description = """
+Task execution protomolecule - autonomous task execution with validation loops.
+
+This formula provides a reusable pattern for executing tasks through worker/validator
+subagent cycles. The pattern ensures work quality and completion before marking beads as done.
+
+## Workflow
+
+```
+Primary Agent Loop:
+  1. Claim bead (task) with `bd update <id> --status in_progress`
+  2. Launch Worker Subagent
+  3. Worker Subagent:
+     - Retrieves bead context with `bd show <id>`
+     - Executes work based on bead requirements
+     - Notifies primary agent when complete
+  4. Primary Agent launches Validator Subagent
+  5. Validator Subagent:
+     - Reviews completed work against bead acceptance criteria
+     - Checks completion status
+     - Returns validation result
+  6. IF validation fails:
+     - Return to step 2 (re-launch Worker Subagent)
+  7. ELSE validation passes:
+     - Complete bead with `bd close <id>`
+     - Commit changes to git
+```
+
+## Usage
+
+```bash
+bd mol wisp create task-execution --var bead-id=bd-xyz
+```
+
+Or assign to a polecat:
+```bash
+gt sling <polecat> --formula task-execution --var bead-id=bd-xyz
+```
+
+## Bead Requirements
+
+Beads should include:
+- **description**: What needs to be done
+- **acceptance**: Specific criteria for completion
+- **notes**: Context or constraints
+
+## Advantages
+
+1. **Quality Assurance**: Validation ensures work meets criteria before closing
+2. **Autonomy**: Subagents work independently with clear protocols
+3. **Repeatability**: Failed validation triggers retry without manual intervention
+4. **Traceability**: Each step is logged to bead status and notes
+5. **Accountability**: Validation provides clear completion signal
+"""
+type = "workflow"
+phase = "vapor"
+version = 1
+
+[vars.bead-id]
+description = "The bead ID to execute (e.g., bd-abc123)"
+required = true
+
+# =============================================================================
+# Step 1: Claim Work
+# =============================================================================
+
+[[steps]]
+id = "claim-work"
+title = "Claim bead as in-progress"
+description = """
+Update bead status to in-progress to signal work has started.
+
+```bash
+bd update {{bead-id}} --status in_progress
+```
+
+Verify status:
+```bash
+bd show {{bead-id}} | grep Status
+```
+
+Should show: [● IN_PROGRESS]
+"""
+
+# =============================================================================
+# Step 2: Launch Worker Subagent
+# =============================================================================
+
+[[steps]]
+id = "launch-worker"
+title = "Launch worker subagent"
+needs = ["claim-work"]
+description = """
+Launch a worker subagent to execute the task.
+
+**Worker Prompt Template:**
+```
+You are a worker subagent executing task {{bead-id}}.
+
+Task Context:
+Use `bd show {{bead-id}}` to get full context including description, acceptance criteria, and notes.
+
+Requirements:
+- Retrieve bead details using `bd show {{bead-id}}`
+- Complete work according to bead description
+- Follow any constraints in bead notes
+- Return completion status when finished
+
+Output: Report what you accomplished and any issues encountered.
+```
+
+**Using Task Tool:**
+```bash
+task subagent_type=general \
+  description="Execute task {{bead-id}}" \
+  prompt="Use \`bd show {{bead-id}}\` to get context. Complete the work and report completion."
+```
+
+Worker should report back with:
+- Work completed
+- Files changed/created
+- Any issues encountered
+- Completion status
+"""
+
+# =============================================================================
+# Step 3: Launch Validator Subagent
+# =============================================================================
+
+[[steps]]
+id = "launch-validator"
+title = "Launch validator subagent"
+needs = ["launch-worker"]
+description = """
+Launch a validator subagent to review the completed work.
+
+**Validator Prompt Template:**
+```
+You are a validator subagent checking work for task {{bead-id}}.
+
+Task Context:
+Use `bd show {{bead-id}}` to get requirements and acceptance criteria.
+
+Validation Checklist:
+- Review bead acceptance criteria
+- Verify work meets all requirements
+- Check for completion
+- Identify any gaps or issues
+
+Output:
+- PASS if work is complete and meets acceptance criteria
+- FAIL with specific gaps if incomplete
+```
+
+**Using Task Tool:**
+```bash
+task subagent_type=general \
+  description="Validate task {{bead-id}}" \
+  prompt="Use \`bd show {{bead-id}}\` to check acceptance criteria. Return PASS or FAIL with details."
+```
+
+Validator should return:
+- PASS/FAIL status
+- Specific feedback on gaps or issues
+- Recommended actions if failed
+"""
+
+# =============================================================================
+# Step 4: Check Validation Result
+# =============================================================================
+
+[[steps]]
+id = "check-validation"
+title = "Check validation result"
+needs = ["launch-validator"]
+description = """
+Review validator output and determine next action.
+
+**If Validation PASSES:**
+- Proceed to complete bead step
+- Work meets acceptance criteria
+- No gaps or issues identified
+
+**If Validation FAILS:**
+- Return to "launch-worker" step
+- Relaunch worker with validator feedback
+- Loop until validation passes
+
+**Common Failure Reasons:**
+- Work incomplete (missing acceptance criteria)
+- Quality issues (bugs, errors)
+- Missing documentation
+- Tests failing
+
+**Updating Worker Prompt with Feedback:**
+When retrying, include validator feedback:
+```
+Use `bd show {{bead-id}}` to get context.
+Previous attempt feedback: <validator feedback>
+Address these issues and complete the work.
+```
+"""
+
+# =============================================================================
+# Step 5: Complete Bead (if validation passed)
+# =============================================================================
+
+[[steps]]
+id = "complete-bead"
+title = "Complete bead when validated"
+needs = ["check-validation"]
+description = """
+Close the bead with completion reason after successful validation.
+
+```bash
+bd close {{bead-id}} --reason "Validated and complete"
+```
+
+Verify closure:
+```bash
+bd show {{bead-id}} | grep Status
+```
+
+Should show: [✓ CLOSED]
+"""
+
+# =============================================================================
+# Step 6: Commit Changes
+# =============================================================================
+
+[[steps]]
+id = "commit-changes"
+title = "Commit changes to git"
+needs = ["complete-bead"]
+description = """
+Commit all changes made during task execution.
+
+```bash
+# Stage all changes
+git add .
+
+# Review staged changes
+git status
+git diff --staged
+
+# Commit with descriptive message
+git commit -m "Complete <task-name> ({{bead-id}})"
+```
+
+**Best Practices:**
+- Use task name from bead title in commit message
+- Keep commit message concise but descriptive
+- Review diff before committing
+- Include bead ID for traceability
+
+Example commit messages:
+```
+feat: Implement CLI command parsing (bd-abc123)
+fix: Resolve race condition in daemon (bd-def456)
+docs: Add API reference documentation (bd-ghi789)
+```
+
+Verify commit:
+```bash
+git log -1
+git status
+```
+
+Should show: "working tree clean"
+"""
+
+# =============================================================================
+# Step 7: Task Complete
+# =============================================================================
+
+[[steps]]
+id = "task-complete"
+title = "Task execution complete"
+needs = ["commit-changes"]
+description = """
+Task execution is complete!
+
+Summary:
+- Bead claimed and set to in-progress
+- Worker subagent executed the work
+- Validator subagent reviewed and approved
+- Bead closed with completion reason
+- Changes committed to git
+
+**Validation Loop Summary:**
+If multiple iterations were needed, summarize:
+- Number of worker/validator cycles
+- Key issues encountered and resolved
+- Final validation result
+
+**Optional Next Steps:**
+- Sync beads: `bd sync`
+- Continue to next ready task: `bd ready`
+- Update project documentation if needed
+- Create follow-up tasks if new work discovered
+
+**For Long-Running Tasks:**
+If this task was part of a larger workflow, signal completion:
+```bash
+gt done --task-complete
+```
+
+The protomolecule pattern ensures quality and accountability through
+iterative execution and validation.
+"""
